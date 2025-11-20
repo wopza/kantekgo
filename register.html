@@ -6,11 +6,14 @@
 <title>Daftar - KantekGO</title>
 <style>
   body{font-family:Helvetica, Arial, sans-serif;background:#fbf6f0;margin:0}
-  .wrap{max-width:420px;margin:48px auto;padding:20px}
+  .wrap{max-width:520px;margin:48px auto;padding:20px}
   .card{background:#fff;padding:18px;border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.06);animation:fadeIn .35s ease}
-  input{width:100%;padding:10px;margin-top:8px;border-radius:8px;border:1px solid #eee}
-  .btn{margin-top:12px;padding:10px;background:#4caf50;color:#fff;border:none;border-radius:8px;cursor:pointer}
+  label{display:block;margin-top:10px;font-size:.95rem;color:#333}
+  input, select{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #eee;box-sizing:border-box}
+  .row{display:flex;gap:8px}
+  .btn{margin-top:14px;padding:10px;background:#4caf50;color:#fff;border:none;border-radius:8px;cursor:pointer}
   .note{color:#666;margin-top:8px}
+  .hint{font-size:.9rem;color:#888;margin-top:6px}
   @keyframes fadeIn {from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 </style>
 </head>
@@ -18,23 +21,41 @@
   <div class="wrap">
     <div class="card">
       <h2>Daftar Akun</h2>
-      <p class="note">Pilih peran. Pembeli membutuhkan key code (misal 9999) untuk verifikasi.</p>
+      <p class="note">Pilih peran lalu lengkapi data. Untuk keamanan, pendaftaran penjual memerlukan kode khusus (kode tidak ditampilkan).</p>
 
+      <label for="role">Peran</label>
       <select id="role">
         <option value="buyer">Pembeli</option>
         <option value="seller">Penjual</option>
       </select>
 
-      <input id="email" placeholder="Email">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="contoh@domain.com">
+
+      <label for="password">Password</label>
       <input id="password" type="password" placeholder="Password">
+
+      <label for="name">Nama lengkap</label>
       <input id="name" placeholder="Nama lengkap">
 
-      <div id="buyerKeyWrap">
-        <input id="buyerKey" placeholder="Key code pembeli (contoh: 9999)">
+      <!-- Seller-specific: gerai name + seller key (hidden field not shown) -->
+      <div id="sellerFields" style="display:none;">
+        <label for="sellerGeraiName">Nama gerai (akan kamu kelola)</label>
+        <input id="sellerGeraiName" placeholder="Nama gerai">
+
+        <label for="sellerKey">Masukkan kode penjual</label>
+        <input id="sellerKey" placeholder="Masukkan kode penjual (rahasiakan)">
+        <div class="hint">Kode penjual diperlukan untuk mendaftar sebagai penjual. (Jangan bagikan kode ini kepada siapa pun.)</div>
       </div>
 
-      <div id="sellerGeraiWrap" style="display:none; margin-top:8px;">
-        <input id="sellerGeraiName" placeholder="Nama gerai yang akan kamu kelola (satu gerai)">
+      <!-- Buyer-specific: optional shop name and buyer key (buyer key required, set to 1616) -->
+      <div id="buyerFields" style="display:block;">
+        <label for="buyerShop">Nama gerai (opsional)</label>
+        <input id="buyerShop" placeholder="Nama gerai (opsional)">
+
+        <label for="buyerKey">Masukkan kode pembeli</label>
+        <input id="buyerKey" placeholder="Masukkan kode pembeli">
+        <div class="hint">Masukkan kode pembeli yang diberikan (contoh: 1616). Jika salah, pendaftaran diblokir.</div>
       </div>
 
       <button class="btn" id="regBtn">Daftar</button>
@@ -43,12 +64,23 @@
   </div>
 
 <script>
+(function(){
+  // SECRET seller code (do NOT display anywhere)
+  const SECRET_SELLER_CODE = '9999';
+  const REQUIRED_BUYER_CODE = '1616'; // as requested
+
   const roleSel = document.getElementById('role');
-  const buyerKeyWrap = document.getElementById('buyerKeyWrap');
-  const sellerGeraiWrap = document.getElementById('sellerGeraiWrap');
+  const sellerFields = document.getElementById('sellerFields');
+  const buyerFields = document.getElementById('buyerFields');
+
   roleSel.addEventListener('change', ()=>{
-    if(roleSel.value==='buyer'){ buyerKeyWrap.style.display='block'; sellerGeraiWrap.style.display='none'; }
-    else { buyerKeyWrap.style.display='none'; sellerGeraiWrap.style.display='block'; }
+    if(roleSel.value === 'seller'){
+      sellerFields.style.display = 'block';
+      buyerFields.style.display = 'none';
+    } else {
+      sellerFields.style.display = 'none';
+      buyerFields.style.display = 'block';
+    }
   });
 
   document.getElementById('regBtn').addEventListener('click', ()=>{
@@ -58,43 +90,53 @@
     const name = document.getElementById('name').value.trim();
     const users = JSON.parse(localStorage.getItem('kantek_users')||'[]');
 
-    if(!email || !password || !name){ alert('Lengkapi semua data.'); return; }
-
+    if(!email || !password || !name){ alert('Lengkapi email, password, dan nama lengkap.'); return; }
     if(users.find(u=>u.email===email)){ alert('Email sudah terdaftar. Silakan login.'); return; }
 
-    if(role==='buyer'){
-      const key = document.getElementById('buyerKey').value.trim();
-      // single shared key as requested: 9999
-      if(key !== '9999'){ alert('Key code pembeli salah.'); return; }
-      const user = {id: 'u'+Date.now(), email, password, name, role};
+    if(role === 'buyer'){
+      const buyerKey = document.getElementById('buyerKey').value.trim();
+      // require buyer code to be exact
+      if(buyerKey !== REQUIRED_BUYER_CODE){
+        alert('Key code pembeli salah. Coba masukkan kembali.');
+        return;
+      }
+      // buyer registration fields
+      const buyerShop = document.getElementById('buyerShop').value.trim() || null;
+      const user = {id: 'u'+Date.now(), email, password, name, role, shop: buyerShop};
       users.push(user);
       localStorage.setItem('kantek_users', JSON.stringify(users));
       localStorage.setItem('kantek_current_user', JSON.stringify(user));
-      alert('Pendaftaran sukses. Kamu login sebagai pembeli.');
+      alert('Pendaftaran pembeli berhasil. Kamu sudah login.');
       location.href = 'index.html';
     } else {
-      // seller: create a gerai (only one)
-      const geraiName = document.getElementById('sellerGeraiName').value.trim();
-      if(!geraiName){ alert('Masukkan nama gerai yang akan kamu kelola.'); return; }
-      // create user and assign gerai id (create new gerai entry)
+      // seller path: require seller fields and correct secret code (not shown)
+      const sellerGeraiName = document.getElementById('sellerGeraiName').value.trim();
+      const sellerKey = document.getElementById('sellerKey').value.trim();
+      if(!sellerGeraiName){ alert('Masukkan nama gerai yang akan kamu kelola.'); return; }
+      if(sellerKey !== SECRET_SELLER_CODE){
+        alert('Key code penjual salah. Coba masukkan kembali.');
+        return;
+      }
+      // create new gerai ID and menu container
       const gerais = JSON.parse(localStorage.getItem('kantek_gerais')||'[]');
       const newId = (gerais.length + 1).toString();
-      const gerai = {id:newId, name:geraiName};
+      const gerai = {id:newId, name:sellerGeraiName};
       gerais.push(gerai);
       localStorage.setItem('kantek_gerais', JSON.stringify(gerais));
-      // also initialize menu for this gerai
       const menus = JSON.parse(localStorage.getItem('kantek_menu')||'{}');
-      menus[newId] = [];
+      menus[newId] = menus[newId] || [];
       localStorage.setItem('kantek_menu', JSON.stringify(menus));
 
       const user = {id: 'u'+Date.now(), email, password, name, role, geraiId: newId};
       users.push(user);
       localStorage.setItem('kantek_users', JSON.stringify(users));
       localStorage.setItem('kantek_current_user', JSON.stringify(user));
-      alert('Pendaftaran sukses. Kamu adalah penjual dan mengelola gerai: ' + geraiName);
+      alert('Pendaftaran penjual berhasil. Kamu sekarang mengelola gerai: ' + sellerGeraiName);
       location.href = 'seller_dashboard.html';
     }
   });
+})();
 </script>
 </body>
 </html>
+
