@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Login - KantekGO</title>
+<style>
+  body{font-family:Helvetica, Arial, sans-serif;background:#fbf6f0;margin:0}
+  .wrap{max-width:420px;margin:48px auto;padding:20px}
+  .card{background:#fff;padding:18px;border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.06);animation:fadeIn .35s ease}
+  input{width:100%;padding:10px;margin-top:8px;border-radius:8px;border:1px solid #eee}
+  .btn{margin-top:12px;padding:10px;background:#f2994a;color:#fff;border:none;border-radius:8px;cursor:pointer}
+  .note{color:#666;margin-top:8px}
+  @keyframes fadeIn {from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h2>Login</h2>
+      <input id="email" placeholder="Email">
+      <input id="password" type="password" placeholder="Password">
+      <div style="margin-top:8px">
+        <label><input type="checkbox" id="remember"> Ingat saya</label>
+      </div>
+      <button class="btn" id="loginBtn">Login</button>
+      <p class="note">Belum punya akun? <a href="register.html">Daftar</a></p>
+    </div>
+  </div>
+
+<script>
+document.getElementById('loginBtn').addEventListener('click', ()=>{
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const password = document.getElementById('password').value;
+  const users = JSON.parse(localStorage.getItem('kantek_users')||'[]');
+  const u = users.find(x=> x.email === email && x.password === password);
+  if(!u){ alert('Email atau password salah.'); return; }
+  localStorage.setItem('kantek_current_user', JSON.stringify(u));
+  alert('Login berhasil sebagai ' + u.role);
+  if(u.role === 'seller') location.href = 'seller_dashboard.html';
+  else location.href = 'index.html';
+});
+</script>
+</body>
+</html>

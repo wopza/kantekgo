@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Seller Dashboard - KantekGO</title>
+<style>
+  body{font-family:Helvetica, Arial, sans-serif;margin:0;background:#fbf6f0;color:#111}
+  .wrap{max-width:1000px;margin:28px auto;padding:20px;animation:fadeIn .35s ease}
+  header{display:flex;align-items:center;justify-content:space-between}
+  .card{background:#fff;padding:12px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.06);margin-bottom:14px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;text-align:left;border-bottom:1px solid #eee}
+  .btn{padding:6px 10px;background:#f2994a;color:#fff;border-radius:8px;border:none;cursor:pointer}
+  .select{padding:6px;border-radius:6px}
+  .cash{font-size:1.2rem;font-weight:700}
+  .small{font-size:.9rem;color:#666}
+  @keyframes fadeIn {from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div style="display:flex;gap:10px;align-items:center"><span style="width:36px;height:36px;border-radius:50%;background:#7fb36b;display:inline-block"></span><strong>Seller Dashboard</strong></div>
+      <div><a href="index.html">Beranda</a> <a href="login.html" style="margin-left:8px">Login</a></div>
+    </header>
+
+    <div class="card">
+      <h3>Profil Penjual</h3>
+      <div id="sellerInfo" class="small">Memuat...</div>
+    </div>
+
+    <div class="card" id="ordersCard">
+      <h3>Antrian Pesanan (hanya gerai Anda)</h3>
+      <div id="ordersWrap"></div>
+    </div>
+
+    <div class="card">
+      <h3>Kelola Menu Gerai</h3>
+      <div id="manageWrap"></div>
+    </div>
+
+    <div class="card">
+      <h3>Dashboard Cashflow</h3>
+      <p>Total penjualan (selesai): <span class="cash" id="totalCash">Rp 0</span></p>
+    </div>
+
+    <footer style="margin-top:18px">Kantin Teknik Universitas Indonesia</footer>
+  </div>
+
+<script>
+  function format(n){ return 'Rp ' + n.toLocaleString(); }
+  const currentUser = JSON.parse(localStorage.getItem('kantek_current_user')||'null');
+  if(!currentUser || currentUser.role !== 'seller'){
+    document.getElementById('sellerInfo').innerText = 'Anda harus login sebagai penjual untuk mengakses dashboard.';
+    document.getElementById('ordersWrap').innerHTML = '<p>Login sebagai penjual terlebih dahulu.</p>';
+    document.getElementById('manageWrap').innerHTML = '';
+  } else {
+    document.getElementById('sellerInfo').innerHTML = `<strong>${currentUser.name}</strong><div class="small">Email: ${currentUser.email}</div><div class="small">Mengelola gerai ID: ${currentUser.geraiId}</div>`;
+    const geraiId = currentUser.geraiId;
+    function loadOrders(){
+      const all = JSON.parse(localStorage.getItem('kantek_orders')||'[]');
+      return all.filter(o => o.gerai===geraiId);
+    }
+    function renderOrders(){
+      const wrap = document.getElementById('ordersWrap');
+      const orders = loadOrders();
+      if(orders.length===0){ wrap.innerHTML = '<p>Tidak ada pesanan.</p>'; return; }
+      let html = '<table><tr><th>ID</th><th>Pembeli</th><th>Items</th><th>Status</th><th>Aksi</th></tr>';
+      orders.forEach(o=>{
+        const items = o.items.map(it=>it.name + ' x' + it.qty).join(', ');
+        html += `<tr><td>${o.id}</td><td>${o.buyer.name}</td><td>${items}</td><td id="st_${o.id}">${o.status}</td><td>
+          <select id="sel_${o.id}" class="select">
+            <option value="menunggu antrian">menunggu antrian</option>
+            <option value="sedang diproses">sedang diproses</option>
+            <option value="selesai">selesai</option>
+          </select>
+          <button class="btn" data-id="${o.id}">Update</button>
+        </td></tr>`;
+      });
+      html += '</table>';
+      wrap.innerHTML = html;
+      orders.forEach(o=>{
+        const sel = document.getElementById('sel_'+o.id);
+        if(sel) sel.value = o.status;
+      });
+      wrap.querySelectorAll('.btn').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const id = b.dataset.id;
+          const sel = document.getElementById('sel_'+id);
+          updateStatus(id, sel.value);
+        });
+      });
+    }
+
+    function updateStatus(orderId, newStatus){
+      const orders = JSON.parse(localStorage.getItem('kantek_orders')||'[]');
+      const idx = orders.findIndex(o=>o.id===orderId);
+      if(idx===-1) return alert('Order not found');
+      orders[idx].status = newStatus;
+      localStorage.setItem('kantek_orders', JSON.stringify(orders));
+      const st = document.getElementById('st_'+orderId);
+      if(st) st.textContent = newStatus;
+      if(newStatus==='selesai'){
+        try{
+          const buyerId = orders[idx].buyer.id;
+          const notKey = 'kantek_last_notif_' + buyerId;
+          localStorage.setItem(notKey, JSON.stringify({orderId, message:'Pesanan Anda sudah selesai.'}));
+          alert('Status diubah menjadi selesai. Buyer akan menerima notifikasi saat membuka situs.');
+        }catch(e){}
+      }
+      renderCash();
+    }
+
+    function renderCash(){
+      const orders = JSON.parse(localStorage.getItem('kantek_orders')||'[]');
+      const geraiId = currentUser.geraiId;
+      const done = orders.filter(o => o.status === 'selesai' && o.gerai===geraiId);
+      const total = done.reduce((s,o)=> s + o.items.reduce((ss,it)=> ss + it.price * it.qty, 0), 0);
+      document.getElementById('totalCash').textContent = format(total);
+    }
+
+    // manage menu UI
+    function renderManage(){
+      const wrap = document.getElementById('manageWrap');
+      const menus = JSON.parse(localStorage.getItem('kantek_menu')||'{}');
+      const list = (menus[geraiId]||[]);
+      let html = '<div><input id="nm" placeholder="Nama menu"> <input id="pr" placeholder="Harga" type="number"> <input id="pt" placeholder="Estimasi (menit)" type="number"> <button id="addm" class="btn">Tambah Menu</button></div>';
+      html += '<div style="margin-top:8px"><strong>Daftar menu:</strong><ul id="mmlist">';
+      list.forEach(it=> html += `<li>${it.name} — Rp ${it.price.toLocaleString()} — Est ${it.prep}m <button class="del" data-id="${it.id}">Hapus</button></li>`);
+      html += '</ul></div>';
+      wrap.innerHTML = html;
+      document.getElementById('addm').addEventListener('click', ()=>{
+        const name = document.getElementById('nm').value.trim();
+        const price = parseInt(document.getElementById('pr').value||0,10);
+        const prep = parseInt(document.getElementById('pt').value||0,10);
+        if(!name || !price || !prep){ alert('Lengkapi data menu.'); return; }
+        const id = name.toLowerCase().replace(/\s+/g,'_') + '_' + Date.now();
+        const menus = JSON.parse(localStorage.getItem('kantek_menu')||'{}');
+        menus[geraiId] = menus[geraiId]||[];
+        menus[geraiId].push({id,name,price,prep});
+        localStorage.setItem('kantek_menu', JSON.stringify(menus));
+        renderManage(); renderOrders(); // refresh
+      });
+      wrap.querySelectorAll('.del').forEach(b=>{
+        b.addEventListener('click', ()=> {
+          const id = b.dataset.id;
+          const menus = JSON.parse(localStorage.getItem('kantek_menu')||'{}');
+          menus[geraiId] = (menus[geraiId]||[]).filter(m=>m.id!==id);
+          localStorage.setItem('kantek_menu', JSON.stringify(menus));
+          renderManage(); renderOrders();
+        });
+      });
+    }
+
+    renderOrders(); renderCash(); renderManage();
+    // poll for updates
+    setInterval(()=>{ renderOrders(); renderCash(); }, 2500);
+  }
+</script>
+</body>
+</html>

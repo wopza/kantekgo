@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Daftar - KantekGO</title>
+<style>
+  body{font-family:Helvetica, Arial, sans-serif;background:#fbf6f0;margin:0}
+  .wrap{max-width:420px;margin:48px auto;padding:20px}
+  .card{background:#fff;padding:18px;border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.06);animation:fadeIn .35s ease}
+  input{width:100%;padding:10px;margin-top:8px;border-radius:8px;border:1px solid #eee}
+  .btn{margin-top:12px;padding:10px;background:#4caf50;color:#fff;border:none;border-radius:8px;cursor:pointer}
+  .note{color:#666;margin-top:8px}
+  @keyframes fadeIn {from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h2>Daftar Akun</h2>
+      <p class="note">Pilih peran. Pembeli membutuhkan key code (misal 9999) untuk verifikasi.</p>
+
+      <select id="role">
+        <option value="buyer">Pembeli</option>
+        <option value="seller">Penjual</option>
+      </select>
+
+      <input id="email" placeholder="Email">
+      <input id="password" type="password" placeholder="Password">
+      <input id="name" placeholder="Nama lengkap">
+
+      <div id="buyerKeyWrap">
+        <input id="buyerKey" placeholder="Key code pembeli (contoh: 9999)">
+      </div>
+
+      <div id="sellerGeraiWrap" style="display:none; margin-top:8px;">
+        <input id="sellerGeraiName" placeholder="Nama gerai yang akan kamu kelola (satu gerai)">
+      </div>
+
+      <button class="btn" id="regBtn">Daftar</button>
+      <p class="note">Sudah punya akun? <a href="login.html">Login</a></p>
+    </div>
+  </div>
+
+<script>
+  const roleSel = document.getElementById('role');
+  const buyerKeyWrap = document.getElementById('buyerKeyWrap');
+  const sellerGeraiWrap = document.getElementById('sellerGeraiWrap');
+  roleSel.addEventListener('change', ()=>{
+    if(roleSel.value==='buyer'){ buyerKeyWrap.style.display='block'; sellerGeraiWrap.style.display='none'; }
+    else { buyerKeyWrap.style.display='none'; sellerGeraiWrap.style.display='block'; }
+  });
+
+  document.getElementById('regBtn').addEventListener('click', ()=>{
+    const role = roleSel.value;
+    const email = document.getElementById('email').value.trim().toLowerCase();
+    const password = document.getElementById('password').value;
+    const name = document.getElementById('name').value.trim();
+    const users = JSON.parse(localStorage.getItem('kantek_users')||'[]');
+
+    if(!email || !password || !name){ alert('Lengkapi semua data.'); return; }
+
+    if(users.find(u=>u.email===email)){ alert('Email sudah terdaftar. Silakan login.'); return; }
+
+    if(role==='buyer'){
+      const key = document.getElementById('buyerKey').value.trim();
+      // single shared key as requested: 9999
+      if(key !== '9999'){ alert('Key code pembeli salah.'); return; }
+      const user = {id: 'u'+Date.now(), email, password, name, role};
+      users.push(user);
+      localStorage.setItem('kantek_users', JSON.stringify(users));
+      localStorage.setItem('kantek_current_user', JSON.stringify(user));
+      alert('Pendaftaran sukses. Kamu login sebagai pembeli.');
+      location.href = 'index.html';
+    } else {
+      // seller: create a gerai (only one)
+      const geraiName = document.getElementById('sellerGeraiName').value.trim();
+      if(!geraiName){ alert('Masukkan nama gerai yang akan kamu kelola.'); return; }
+      // create user and assign gerai id (create new gerai entry)
+      const gerais = JSON.parse(localStorage.getItem('kantek_gerais')||'[]');
+      const newId = (gerais.length + 1).toString();
+      const gerai = {id:newId, name:geraiName};
+      gerais.push(gerai);
+      localStorage.setItem('kantek_gerais', JSON.stringify(gerais));
+      // also initialize menu for this gerai
+      const menus = JSON.parse(localStorage.getItem('kantek_menu')||'{}');
+      menus[newId] = [];
+      localStorage.setItem('kantek_menu', JSON.stringify(menus));
+
+      const user = {id: 'u'+Date.now(), email, password, name, role, geraiId: newId};
+      users.push(user);
+      localStorage.setItem('kantek_users', JSON.stringify(users));
+      localStorage.setItem('kantek_current_user', JSON.stringify(user));
+      alert('Pendaftaran sukses. Kamu adalah penjual dan mengelola gerai: ' + geraiName);
+      location.href = 'seller_dashboard.html';
+    }
+  });
+</script>
+</body>
+</html>
