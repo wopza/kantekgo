@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Menu Gerai - KantekGO</title>
+  <style>
+    body{font-family:Inter,Arial,sans-serif;margin:0;background:#fbf6f0;color:#111}
+    .wrap{max-width:900px;margin:28px auto;padding:20px}
+    header{display:flex;align-items:center;justify-content:space-between}
+    .logo{display:flex;align-items:center;gap:10px;font-weight:700}
+    .menu{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:18px}
+    .item{background:#fff;padding:12px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.06);display:flex;flex-direction:column;align-items:flex-start}
+    .item b{margin-bottom:8px}
+    .controls{display:flex;gap:8px;margin-top:8px;align-items:center}
+    .btn{padding:8px 12px;background:#f2994a;color:#fff;border-radius:8px;border:none;cursor:pointer}
+    .small{background:#e6e6e6;color:#333;padding:6px 8px;border-radius:6px}
+    footer{margin-top:34px;text-align:center;color:#777;padding:18px 0}
+    label{display:flex;gap:8px;align-items:center}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo"><span style="width:36px;height:36px;border-radius:50%;background:#7fb36b;display:inline-block"></span>KantekGO!</div>
+      <div>
+        <a href="index.html" style="margin-right:12px">Beranda</a>
+        <a href="login.html">Login</a>
+      </div>
+    </header>
+
+    <h2 id="geraiName">Gerai</h2>
+    <p id="info" style="color:#666">Pilih menu dan masukkan opsi Takeaway atau Dine-in.</p>
+
+    <div style="margin-top:12px">
+      <label><input type="radio" name="type" value="takeaway" checked> Take Away</label>
+      <label style="margin-left:10px"><input type="radio" name="type" value="dinein"> Dine In</label>
+    </div>
+
+    <div class="menu" id="menuList"></div>
+
+    <div style="margin-top:18px" id="cartWrap" class="card" hidden>
+      <h3>Keranjang</h3>
+      <div id="cartList"></div>
+      <p><strong>Total: </strong><span id="total">0</span></p>
+      <button class="btn" id="orderBtn">Pesan</button>
+    </div>
+
+    <footer>Kantin Teknik Universitas Indonesia</footer>
+  </div>
+
+  <script>
+    // helper untuk notifikasi
+    function notify(title, body){
+      if(window.Notification && Notification.permission === "granted"){
+        new Notification(title, {body});
+      } else if(window.Notification && Notification.permission !== "denied"){
+        Notification.requestPermission().then(p=>{
+          if(p==='granted') new Notification(title,{body});
+          else alert(title + "\\n" + body);
+        });
+      } else alert(title + "\\n" + body);
+    }
+
+    const params = new URLSearchParams(location.search);
+    const gerai = params.get('gerai') || '1';
+    document.getElementById('geraiName').textContent = 'Gerai ' + gerai;
+
+    const menu = JSON.parse(localStorage.getItem('kantek_menu')||'{}')[gerai] || [];
+    const menuList = document.getElementById('menuList');
+    const cart = {};
+    function renderMenu(){
+      menuList.innerHTML = '';
+      menu.forEach(it=>{
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.innerHTML = `<b>${it.name}</b><div>Rp ${it.price.toLocaleString()}</div><div class="controls"><input type="number" min="0" value="0" id="qty_${it.id}" style="width:72px"><button class="btn" data-id="${it.id}">Tambah</button><div class="small">Est: ${it.prep}m</div></div>`;
+        menuList.appendChild(div);
+      });
+    }
+    renderMenu();
+
+    menuList.addEventListener('click', e=>{
+      if(e.target.matches('.btn')){
+        const id = e.target.dataset.id;
+        const qty = parseInt(document.getElementById('qty_'+id).value||0,10);
+        if(qty<=0){ alert('Masukkan jumlah > 0'); return; }
+        const item = menu.find(x=>x.id===id);
+        cart[id] = cart[id] ? {...cart[id], qty: cart[id].qty + qty} : {item, qty};
+        renderCart();
+      }
+    });
+
+    function renderCart(){
+      const wrap = document.getElementById('cartWrap');
+      const list = document.getElementById('cartList');
+      list.innerHTML = '';
+      let total = 0;
+      Object.values(cart).forEach(c=>{
+        const div = document.createElement('div');
+        div.textContent = `${c.item.name} x ${c.qty} — Rp ${(c.item.price * c.qty).toLocaleString()}`;
+        list.appendChild(div);
+        total += c.item.price * c.qty;
+      });
+      document.getElementById('total').textContent = 'Rp ' + total.toLocaleString();
+      wrap.hidden = Object.keys(cart).length === 0;
+    }
+
+    document.getElementById('orderBtn').addEventListener('click', ()=>{
+      const currentUser = JSON.parse(localStorage.getItem('kantek_current_user')||'null');
+      if(!currentUser || currentUser.role !== 'buyer'){
+        if(!confirm('Kamu belum login sebagai pembeli. Login sekarang?')) return;
+        location.href = 'login.html';
+        return;
+      }
+      // build order
+      const type = document.querySelector('input[name="type"]:checked').value;
+      const orders = JSON.parse(localStorage.getItem('kantek_orders')||'[]');
+      const orderItems = Object.values(cart).map(c=>({id:c.item.id,name:c.item.name,qty:c.qty,prep:c.item.prep,price:c.item.price}));
+      // calculate queue & ETA: sum of remaining prep times of pending orders for this gerai + this order's prep
+      const pending = orders.filter(o => o.gerai===gerai && o.status !== 'selesai');
+      // each order's time = sum(item.prep * qty)
+      function orderTime(o){
+        return o.items.reduce((s,it)=>s + (it.prep * it.qty),0);
+      }
+      const queueTime = pending.reduce((s,o)=>s + orderTime(o),0);
+      const thisTime = orderItems.reduce((s,it)=>s + (it.prep * it.qty),0);
+      const etaMinutes = queueTime + thisTime;
+      const id = 'ord_' + Date.now();
+      const order = {
+        id, gerai, buyer: currentUser, items: orderItems, type, status: 'menunggu antrian',
+        createdAt: Date.now(), etaMinutes, queueBefore: pending.length
+      };
+      orders.push(order);
+      localStorage.setItem('kantek_orders', JSON.stringify(orders));
+      // send notification and redirect to status page for that order
+      notify('Pesanan diterima','Pesananmu diterima. Estimasi: ' + etaMinutes + ' menit');
+      location.href = `status.html?order=${id}`;
+    });
+  </script>
+</body>
+</html>
