@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Daftar Akun - KantekGO</title>
+
+<style>
+    :root{--bg:#fbf6f0;--card:#23272a;--accent:#f2994a;--green:#7fb36b;--muted:#666;--cream:#fbf6f0}
+    body {margin:0;background:var(--bg);font-family:Helvetica, Arial, sans-serif;color:#23272a}
+    header.top{max-width:900px;margin:22px auto 6px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;background:#23272a;border-radius:12px 12px 32px 32px;box-shadow:0 8px 24px rgba(60,60,60,0.08);color:var(--cream);}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--cream);}
+    .brand img{width:40px;height:40px;border-radius:50%}
+    .nav-link{text-decoration:none;color:var(--cream);font-weight:500;padding:8px 10px;border-radius:8px;transition:all .18s ease}
+    .nav-link:hover{background:rgba(251,246,240,0.12);color:var(--cream)}
+    .container{max-width:520px;margin:28px auto;background:var(--card);padding:26px;border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.08);color:var(--cream)}
+    h2{margin-top:0;text-align:center;color:var(--cream)}
+    label{margin-top:12px;display:block;font-weight:600;font-size:.95rem;color:var(--cream)}
+    input,select{width:100%;padding:12px;margin-top:6px;border-radius:10px;border:1px solid #eee;font-size:.95rem;box-sizing:border-box}
+    button{width:100%;padding:12px;margin-top:18px;border:none;background:var(--accent);color:#fff;font-size:1rem;border-radius:10px;cursor:pointer;font-weight:700;transition:transform .14s ease,box-shadow .14s ease,filter .14s ease}
+    button:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(0,0,0,0.12);filter:brightness(.98)}
+    button:active{transform:translateY(-1px);filter:brightness(.96)}
+    .note{margin-top:12px;font-size:.95rem;text-align:center;color:var(--muted)}
+    .small{color:#fbf6f0}
+</style>
+</head>
+
+<body>
+<header class="top">
+  <div class="brand"><img src="logo.jpg" alt="logo">KantekGO!</div>
+  <nav>
+    <a class="nav-link" href="index.html">Beranda</a>
+    <a class="nav-link" href="login.html">Login</a>
+  </nav>
+</header>
+
+<div class="container">
+    <h2>Buat Akun Baru</h2>
+
+    <label for="role">Daftar sebagai</label>
+    <select id="role">
+        <option value="buyer">Pembeli</option>
+        <option value="seller">Penjual</option>
+    </select>
+
+    <label>Email</label>
+    <input id="email" type="email" placeholder="contoh@domain.com">
+
+    <label>Password</label>
+    <input id="password" type="password" placeholder="Password">
+
+    <label>Nama lengkap</label>
+    <input id="name" type="text" placeholder="Nama lengkap">
+
+    <!-- SELLER FIELDS -->
+    <div id="sellerBox" style="display:none;">
+        <label>Nama gerai</label>
+        <input id="sellerGeraiName" type="text" placeholder="Nama gerai kamu">
+
+        <label>Kode Penjual</label>
+        <input id="sellerKey" type="password" placeholder="Masukkan kode penjual">
+        <div class="small">Kode penjual diperlukan untuk mendaftar sebagai penjual.</div>
+    </div>
+
+    <button id="regBtn">Daftar Sekarang</button>
+
+    <p class="note">Sudah punya akun? <a href="login.html">Login</a></p>
+</div>
+
+<script>
+(function(){
+    const SECRET_SELLER_CODE = "9999";
+
+    const roleSel = document.getElementById("role");
+    const buyerBox = document.getElementById("buyerBox");
+    const sellerBox = document.getElementById("sellerBox");
+
+    roleSel.addEventListener("change", () => {
+        if(roleSel.value === "seller"){
+            sellerBox.style.display = "block";
+        } else {
+            sellerBox.style.display = "none";
+        }
+    });
+
+    document.getElementById("regBtn").addEventListener("click", () => {
+        const role = roleSel.value;
+        const email = document.getElementById("email").value.trim().toLowerCase();
+        const password = document.getElementById("password").value;
+        const name = document.getElementById("name").value.trim();
+
+        if(!email || !password || !name){
+            alert("Harap lengkapi semua data.");
+            return;
+        }
+
+        // Cek dukungan localStorage
+        if(typeof(Storage)==="undefined"){
+            alert("Browser tidak mendukung localStorage. Tidak bisa mendaftar.");
+            return;
+        }
+
+        let users = [];
+        try {
+            users = JSON.parse(localStorage.getItem("kantek_users") || "[]");
+        } catch(e) {
+            users = [];
+        }
+
+        if(users.find(u => u.email === email)){
+            alert("Email sudah terdaftar.");
+            return;
+        }
+
+        if(role === "buyer"){
+            const user = {
+                id: "u" + Date.now(),
+                email,
+                password,
+                name,
+                role
+            };
+
+            users.push(user);
+            try {
+                localStorage.setItem("kantek_users", JSON.stringify(users));
+                localStorage.setItem("kantek_current_user", JSON.stringify(user));
+            } catch(e) {
+                alert("Gagal menyimpan data. Pastikan browser mengizinkan penyimpanan lokal.");
+                return;
+            }
+
+            alert("Pendaftaran pembeli berhasil!");
+            location.href = "index.html";
+            return;
+        }
+
+        if(role === "seller"){
+            const geraiName = document.getElementById("sellerGeraiName").value.trim();
+            const sellerKey = document.getElementById("sellerKey").value.trim();
+
+            if(!geraiName){
+                alert("Masukkan nama gerai.");
+                return;
+            }
+
+            if(sellerKey !== SECRET_SELLER_CODE){
+                alert("Kode penjual salah.");
+                return;
+            }
+
+            // buat gerai baru
+            let gerais = [];
+            try {
+                gerais = JSON.parse(localStorage.getItem("kantek_gerais") || "[]");
+            } catch(e) { gerais = []; }
+            const newGeraiId = (gerais.length + 1).toString();
+
+            gerais.push({ id: newGeraiId, name: geraiName });
+            try {
+                localStorage.setItem("kantek_gerais", JSON.stringify(gerais));
+            } catch(e) {}
+
+            let menus = {};
+            try {
+                menus = JSON.parse(localStorage.getItem("kantek_menu") || "{}");
+            } catch(e) { menus = {}; }
+            menus[newGeraiId] = menus[newGeraiId] || [];
+            try {
+                localStorage.setItem("kantek_menu", JSON.stringify(menus));
+            } catch(e) {}
+
+            const user = {
+                id: "u" + Date.now(),
+                email,
+                password,
+                name,
+                role: "seller",
+                geraiId: newGeraiId
+            };
+
+            users.push(user);
+            try {
+                localStorage.setItem("kantek_users", JSON.stringify(users));
+                localStorage.setItem("kantek_current_user", JSON.stringify(user));
+            } catch(e) {
+                alert("Gagal menyimpan data. Pastikan browser mengizinkan penyimpanan lokal.");
+                return;
+            }
+
+            alert("Pendaftaran penjual berhasil! Kamu mengelola gerai: " + geraiName);
+            location.href = "seller_dashboard.html";
+        }
+    });
+
+})();
+</script>
+
+</body>
+</html>
+
+

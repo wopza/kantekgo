@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Riwayat Penjualan - KantekGO</title>
+  <style>
+    body{background:#fbf6f0;color:#23272a;font-family:'Segoe UI',Arial,sans-serif;margin:0;}
+    .wrap{max-width:900px;margin:36px auto;padding:24px}
+    .site-header{background:#23272a;color:#fbf6f0;padding:18px 24px;border-radius:18px 18px 36px 36px;box-shadow:0 8px 32px rgba(60,60,60,0.08);display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+    .site-header .logo{display:flex;align-items:center;gap:12px;font-weight:700}
+    .site-header .logo img{width:40px;height:40px;border-radius:10px;object-fit:cover}
+    .site-header .brand-text{font-size:1.2rem;font-weight:800;letter-spacing:1px;color:#fbf6f0}
+    .site-header nav a{color:#fbf6f0;text-decoration:none;font-weight:600;margin-left:18px;padding:7px 14px;border-radius:8px;transition:background .18s}
+    .site-header nav a:hover{background:rgba(251,246,240,0.12);}
+    h2{margin-top:0;font-size:2rem;font-weight:800;color:#fbf6f0;letter-spacing:1px}
+    .card{background:#23272a;border-radius:16px;padding:20px;box-shadow:0 4px 18px rgba(60,60,60,0.06);margin-bottom:18px;color:#fbf6f0}
+    .order{border:1px solid #e0d7c7;padding:14px 16px;border-radius:10px;margin-bottom:12px;background:#fff;color:#23272a}
+    .order h4{margin:0 0 6px;font-size:1.1rem;color:#23272a}
+    .muted{color:#bdbdbd;font-size:.97rem}
+    .items{margin-top:8px}
+    .items li{margin-bottom:5px}
+    .empty{padding:22px;text-align:center;color:#888}
+    @media(max-width:700px){.wrap{padding:8px}.site-header{padding:10px 8px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="site-header">
+      <div class="logo"><img src="logo.jpg" alt="logo"><div class="brand-text">KantekGO Seller</div></div>
+      <nav>
+        <a href="seller_dashboard.html">Dashboard</a>
+        <a href="menu.html">Menu</a>
+      </nav>
+    </header>
+    <div class="card">
+      <h2>Riwayat Penjualan</h2>
+      <p class="muted">Semua pesanan yang masuk ke gerai Anda akan muncul di sini.</p>
+      <div id="list"></div>
+    </div>
+  </div>
+  <script>
+    const currentUser = JSON.parse(localStorage.getItem('kantek_current_user')||'null');
+    const out = document.getElementById('list');
+    if(!currentUser || currentUser.role !== 'seller'){
+      out.innerHTML = '<div class="empty">Kamu harus login sebagai penjual untuk melihat riwayat. <a href="login.html">Login</a></div>';
+    } else {
+      const all = JSON.parse(localStorage.getItem('kantek_orders')||'[]');
+      const gid = currentUser.geraiId || currentUser.gerai || currentUser.id;
+      const mine = all.filter(o => {
+        if(!o) return false;
+        if(o.geraiId && gid && o.geraiId === gid) return true;
+        if(o.gerai && gid && (o.gerai === gid || (''+o.gerai).toLowerCase() === (''+gid).toLowerCase())) return true;
+        if(o.sellerId && gid && o.sellerId === gid) return true;
+        return false;
+      });
+      if(mine.length===0){ out.innerHTML = '<div class="empty">Belum ada riwayat penjualan.</div>'; }
+      else{
+        mine.sort((a,b)=>b.createdAt - a.createdAt);
+        mine.forEach(o=>{
+          const div = document.createElement('div');
+          div.className = 'order';
+          const date = o.createdAt ? new Date(o.createdAt).toLocaleString() : '-';
+          const total = o.items.reduce((s,it)=> s + (it.price * it.qty),0);
+          div.innerHTML = `<h4>${o.id} — <span class="muted">${o.status}</span></h4><div class="muted">Pembeli: ${o.buyer? o.buyer.name : '-'} • ${date}</div><ul class="items">${o.items.map(it=>`<li>${it.name} x ${it.qty} — Rp ${ (it.price*it.qty).toLocaleString() }</li>`).join('')}</ul><div style="margin-top:8px;font-weight:700">Total: Rp ${total.toLocaleString()}</div>`;
+          out.appendChild(div);
+        });
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Menu Gerai - KantekGO</title>
+<style>
+  body{font-family:Helvetica, Arial, sans-serif;margin:0;background:#fbf6f0;color:#23272a}
+  .wrap{max-width:900px;margin:28px auto;padding:20px;animation:fadeIn .35s ease}
+  header{display:flex;align-items:center;justify-content:space-between;background:#23272a;border-radius:12px 12px 32px 32px;padding:14px 18px;box-shadow:0 8px 24px rgba(60,60,60,0.08);color:#fbf6f0;}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:700;color:#fbf6f0}
+  .menu{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:18px}
+  .item{background:#23272a;padding:12px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.06);display:flex;flex-direction:row;align-items:center;gap:12px;transition:transform .18s;color:#fbf6f0}
+  .item:hover{transform:translateY(-6px)}
+  .item-image{width:80px;height:80px;border-radius:8px;object-fit:cover;flex-shrink:0}
+  .item-content{display:flex;flex-direction:column;align-items:flex-start;flex:1}
+  .item-content b{margin-bottom:4px;color:#fbf6f0}
+  .controls{display:flex;gap:8px;margin-top:8px;align-items:center}
+  .btn{padding:8px 12px;background:#f2994a;color:#fff;border-radius:8px;border:none;cursor:pointer}
+  .small{background:#e6e6e6;color:#333;padding:6px 8px;border-radius:6px}
+  .cart{position:fixed;right:20px;bottom:20px;background:#23272a;padding:12px;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.08);color:#fbf6f0}
+  .back{background:transparent;border:none;color:#fbf6f0;cursor:pointer;font-size:1rem;padding:8px 10px}
+  .nav-link{text-decoration:none;color:#fbf6f0;font-weight:500;padding:8px 12px;border-radius:8px;transition:all .2s ease}
+  .nav-link:hover{background:rgba(251,246,240,0.12);color:#fbf6f0}
+  footer{margin-top:34px;text-align:center;color:#777;padding:18px 0}
+  @keyframes fadeIn {from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo"><button class="back" onclick="goBack()">← Kembali</button><img src="logo.jpg" alt="KantekGO" style="width:36px;height:36px;border-radius:50%;display:inline-block;">KantekGO!</div>
+      <div>
+        <a href="index.html" class="nav-link">Beranda</a>
+        <a href="login.html" class="nav-link">Login</a>
+      </div>
+    </header>
+
+    <h2 id="geraiName">Gerai</h2>
+    <p id="info" style="color:#666">Pilih menu dan masukkan opsi Takeaway atau Dine-in.</p>
+
+    <div style="margin-top:12px">
+      <label><input type="radio" name="type" value="takeaway" checked> Take Away</label>
+      <label style="margin-left:10px"><input type="radio" name="type" value="dinein"> Dine In</label>
+    </div>
+
+    <div class="menu" id="menuList"></div>
+
+    <div id="cartWrap" class="card" hidden style="margin-top:18px;background:#fff;padding:12px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.06)">
+      <h3>Keranjang</h3>
+      <div id="cartList"></div>
+      <p><strong>Total: </strong><span id="total">0</span></p>
+      <button class="btn" id="orderBtn">Pesan</button>
+    </div>
+
+    <footer>Kantin Teknik Universitas Indonesia</footer>
+  </div>
+
+<script>
+  function goBack(){ // back to previous page if exists, else to index
+    if(document.referrer) history.back();
+    else location.href='index.html';
+  }
+
+  // helper notify
+  function notify(title, body){
+    if(window.Notification && Notification.permission === "granted"){
+      new Notification(title, {body});
+    } else if(window.Notification && Notification.permission !== "denied"){
+      Notification.requestPermission().then(p=>{
+        if(p==='granted') new Notification(title,{body});
+        else alert(title + "\\n" + body);
+      });
+    } else alert(title + "\\n" + body);
+  }
+
+  const params = new URLSearchParams(location.search);
+  const gerai = params.get('gerai') || '1';
+  document.getElementById('geraiName').textContent = 'Gerai ' + gerai;
+
+  const menuDB = JSON.parse(localStorage.getItem('kantek_menu')||'{}');
+  const menu = menuDB[gerai] || [];
+  const menuList = document.getElementById('menuList');
+  const cart = {};
+  function renderMenu(){
+    // reload menu from storage each render to reflect seller changes
+    const menuDB2 = JSON.parse(localStorage.getItem('kantek_menu')||'{}');
+    const mm = menuDB2[gerai] || [];
+    menuList.innerHTML = '';
+    mm.forEach(it=>{
+      const div = document.createElement('div');
+      div.className = 'item';
+      div.innerHTML = `<img src="${it.id}.jpg" alt="${it.name}" class="item-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2280%22%3E%3Crect fill=%22%23eee%22 width=%2280%22 height=%2280%22/%3E%3Ctext x=%2240%22 y=%2245%22 font-family=%22Arial%22 text-anchor=%22middle%22 fill=%22%23999%22%3ENo Image%3C/text%3E%3C/svg%3E'"><div class="item-content"><b>${it.name}</b><div>Rp ${it.price.toLocaleString()}</div><div class="controls"><input type="number" min="0" value="0" id="qty_${it.id}" style="width:72px"><button class="btn" data-id="${it.id}">Tambah</button><div class="small">Est: ${it.prep}m</div></div></div>`;
+      menuList.appendChild(div);
+    });
+  }
+  renderMenu();
+
+  menuList.addEventListener('click', e=>{
+    if(e.target.matches('.btn')){
+      // check login buyer
+      const currentUser = JSON.parse(localStorage.getItem('kantek_current_user')||'null');
+      if(!currentUser || currentUser.role !== 'buyer'){
+        alert('Kamu harus login terlebih dahulu!');
+        location.href = 'login.html';
+        return;
+      }
+      const id = e.target.dataset.id;
+      const qty = parseInt(document.getElementById('qty_'+id).value||0,10);
+      if(qty<=0){ alert('Masukkan jumlah > 0'); return; }
+      // re-get item from storage
+      const menusNow = JSON.parse(localStorage.getItem('kantek_menu')||'{}');
+      const item = (menusNow[gerai]||[]).find(x=>x.id===id);
+      cart[id] = cart[id] ? {...cart[id], qty: cart[id].qty + qty} : {item, qty};
+      renderCart();
+    }
+  });
+
+  function renderCart(){
+    const wrap = document.getElementById('cartWrap');
+    const list = document.getElementById('cartList');
+    list.innerHTML = '';
+    let total = 0;
+    Object.values(cart).forEach(c=>{
+      const div = document.createElement('div');
+      div.textContent = `${c.item.name} x ${c.qty} — Rp ${(c.item.price * c.qty).toLocaleString()}`;
+      list.appendChild(div);
+      total += c.item.price * c.qty;
+    });
+    document.getElementById('total').textContent = 'Rp ' + total.toLocaleString();
+    wrap.hidden = Object.keys(cart).length === 0;
+  }
+
+  document.getElementById('orderBtn').addEventListener('click', ()=>{
+    const currentUser = JSON.parse(localStorage.getItem('kantek_current_user')||'null');
+    if(!currentUser || currentUser.role !== 'buyer'){
+      alert('Kamu harus login terlebih dahulu!');
+      location.href = 'login.html';
+      return;
+    }
+    const type = document.querySelector('input[name="type"]:checked').value;
+    const orders = JSON.parse(localStorage.getItem('kantek_orders')||'[]');
+    const orderItems = Object.values(cart).map(c=>({id:c.item.id,name:c.item.name,qty:c.qty,prep:c.item.prep,price:c.item.price}));
+    function orderTime(o){ return o.items.reduce((s,it)=>s + (it.prep * it.qty),0); }
+    const pending = orders.filter(o => o.gerai===gerai && o.status !== 'selesai');
+    const queueTime = pending.reduce((s,o)=>s + orderTime(o),0);
+    const thisTime = orderItems.reduce((s,it)=>s + (it.prep * it.qty),0);
+    const etaMinutes = queueTime + thisTime;
+    const id = 'ord_' + Date.now();
+    const order = {
+      id, gerai, buyer: currentUser, items: orderItems, type, status: 'menunggu antrian',
+      createdAt: Date.now(), etaMinutes, queueBefore: pending.length
+    };
+    orders.push(order);
+    localStorage.setItem('kantek_orders', JSON.stringify(orders));
+    notify('Pesanan diterima','Estimasi: ' + etaMinutes + ' menit');
+    location.href = `status.html?order=${id}`;
+  });
+</script>
+</body>
+</html>
